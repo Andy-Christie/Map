@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Location Search</title>
+  <style>
+    #map {
+      height: 400px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div>
+      <button @click="getCurrentLocation">Get Current Location</button>
+      <input type="text" v-model="searchText" @keydown.enter="searchLocation">
+      <button @click="searchLocation">Search</button>
+    </div>
+    <div id="map"></div>
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="place in searchedPlaces" :key="place.id">
+          <td><input type="checkbox" v-model="selectedPlaces" :value="place"></td>
+          <td>{{ place.name }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <button @click="deleteSelectedPlaces">Delete Selected Places</button>
+    <div>
+      <p>Latest Searched Location:</p>
+      <p>Time Zone: {{ latestLocation.timezone }}</p>
+      <p>Local Time: {{ latestLocation.localTime }}</p>
+    </div>
+  </div>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNm5dSpA_QYlpXdDf4m8ao2KSUG-qtvJ4&libraries=places"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        searchText: '',
+        searchedPlaces: [],
+        selectedPlaces: [],
+        latestLocation: {
+          timezone: '',
+          localTime: ''
+        },
+        map: null,
+        markers: []
+      },
+      methods: {
+        getCurrentLocation() {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+              this.addMarker({ lat, lng });
+              console.log(this);
+            });
+          } else {
+            alert('Geolocation is not supported by this browser.');
+          }
+        },
+        searchLocation() {
+          if (this.searchText.trim() === '') return;
+          
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ address: this.searchText }, (results, status) => {
+            if (status === 'OK' && results.length > 0) {
+              const { lat, lng } = results[0].geometry.location;
+              this.addMarker({ lat, lng });
+              this.latestLocation.timezone = results[0].formatted_address;
+              this.latestLocation.localTime = new Date().toLocaleTimeString();
+              this.searchedPlaces.push({ id: Date.now(), name: this.searchText });
+              this.searchText = '';
+            } else {
+              alert('Location not found.');
+            }
+          });
+        },
+        addMarker(position) {
+          const marker = new google.maps.Marker({
+            position,
+            map: this.map
+          });
+          this.markers.push(marker);
+        },
+        deleteSelectedPlaces() {
+          this.selectedPlaces.forEach(place => {
+            const index = this.searchedPlaces.indexOf(place);
+            this.searchedPlaces.splice(index, 1);
+          });
+
+          this.selectedPlaces = [];
+
+          this.markers.forEach(marker => {
+            if (marker.map) {
+              marker.setMap(null);
+            }
+          });
+
+          this.markers = [];
+        },
+        initializeMap() {
+          this.map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 0, lng: 0 },
+            zoom: 2
+          });
+        }
+      },
+      mounted() {
+        this.initializeMap();
+      }
+    });
+  </script>
+</body>
+</html>
